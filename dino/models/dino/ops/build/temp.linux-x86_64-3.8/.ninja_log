@@ -1,0 +1,4 @@
+# ninja log v5
+0	3002	1662492705698728276	/workspace/DINO/dinomodels/dino/ops/build/temp.linux-x86_64-3.8/workspace/DINO/dinomodels/dino/ops/src/cpu/ms_deform_attn_cpu.o	eb447f7ef310cc
+0	9355	1662492712050728138	/workspace/DINO/dinomodels/dino/ops/build/temp.linux-x86_64-3.8/workspace/DINO/dinomodels/dino/ops/src/vision.o	28b412cdfcf9a52a
+0	35278	1662492737966727574	/workspace/DINO/dinomodels/dino/ops/build/temp.linux-x86_64-3.8/workspace/DINO/dinomodels/dino/ops/src/cuda/ms_deform_attn_cuda.o	be971a36183272fb

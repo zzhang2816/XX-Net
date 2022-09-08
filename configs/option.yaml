@@ -1,0 +1,53 @@
+name: faster_rcnn_r_50_fpn_3x
+ref: RCNN2BEVTask
+datetime: FasterRCNN2BEV-finetune
+notes: a configuration for FasterRCNN
+src_folder: src
+output_path: log/test
+dataset_path: data/CityUHK-X-BEV
+train_setting:
+dataloader:
+    ref: CityUHKBEVLoaders
+    kwargs:
+        keys:
+            - image
+            - head_map
+            - feet_map
+            - bev_map
+            - num_annotations
+            - feet_annotation
+            - head_annotation
+            - camera_angle
+            - camera_height
+            - camera_fu
+            - camera_fv
+        scene_mixed: true
+        use_augment: true
+        valid_ratio: 0.2
+        batch_size: 2
+        num_workers: 2
+        pin_memory: true
+dino_config_file: ./bev_config/DINO/DINO_4scale_swin.py
+pose_net:
+    ref: PoseNet
+    pth_path: ./PoseNet.pth
+    kwargs:
+        encoder_type: vgg16_bn
+        encoder_pretrained: false
+model:
+loss:
+    ref: BEVLoss
+    kwargs:
+        magnitude_scale: 1
+        loss_weights:
+            bev_map: 8.
+            feet_map: 1.
+            head_map: 1.
+            pose-angle: 2.
+            pose-height: 0.02
+            head_map-cnt-mse: 1e-5
+            feet_map-cnt-mse: 1e-5
+            bev_map-cnt-mse: 1e-5
+optimizer:
+lr_scheduler:
+test_option: <<test-option.yaml

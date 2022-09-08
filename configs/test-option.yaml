@@ -1,0 +1,11 @@
+metrics:
+    - bev_config/metrics/chamfer_distance.yaml
+    - bev_config/metrics/density_cluster.yaml
+save_im: true
+save_model_output: true
+label_risk: false
+test_all: false
+# used by baseline (IV2BEV) only
+cc_oracle: false
+pose_oracle: false
+iv_map: head_map
