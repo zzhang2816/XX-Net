@@ -31,11 +31,11 @@ from dino.DINO_4scale_swin import trained_model
 logger = get_logger(__name__)
 
 
-@Spaces.register(Spaces.NAME.TASK, ['RCNNTask', 'RCNN2BEVTask'])
-class RCNNTask(LauncherTask):
+@Spaces.register(Spaces.NAME.TASK, ['DINOTask', 'DINO2BEVTask'])
+class DINOTask(LauncherTask):
 
     def __init__(self, task_option):
-        super(RCNNTask, self).__init__()
+        super(DINOTask, self).__init__()
         self._option = task_option
         self.cuda_ids = task_option.cuda_ids
         self.rank = get_rank()

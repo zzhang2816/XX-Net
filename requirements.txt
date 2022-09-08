@@ -8,3 +8,7 @@ termcolor
 addict
 yapf
 timm
+colorlog
+ruamel.yaml
+h5py
+seaborn

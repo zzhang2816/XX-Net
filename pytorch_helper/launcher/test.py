@@ -27,14 +27,16 @@ class Tester(Launcher):
         if self.args.output_path is not None:
             task_dict['output_path'] = self.args.output_path
         elif not os.path.exists(task_dict['output_path']):
-            cur_output_path = os.path.dirname(self.args.task_option_file)
-            datetime = os.path.basename(cur_output_path)
-            cur_output_path = os.path.dirname(cur_output_path)
-            task_name = os.path.basename(cur_output_path)
-            cur_output_path = os.path.dirname(cur_output_path)
-            task_dict['name'] = task_name
-            task_dict['datetime'] = datetime
-            task_dict['output_path'] = cur_output_path
+            # cur_output_path = os.path.dirname(self.args.task_option_file)
+            # datetime = os.path.basename(cur_output_path)
+            # cur_output_path = os.path.dirname(cur_output_path)
+            # task_name = os.path.basename(cur_output_path)
+            # cur_output_path = os.path.dirname(cur_output_path)
+            # task_dict['name'] = task_name
+            # task_dict['datetime'] = datetime
+            # task_dict['output_path'] = cur_output_path
+            task_dict['name'] = None
+            task_dict['datetime'] = None
 
         if int(os.environ['DEBUG']):
             task_dict['dataloader']['kwargs']['num_workers'] = 0

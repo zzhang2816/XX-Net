@@ -106,8 +106,6 @@ class TaskOptionData(OptionBase):
 
         if self.datetime is None:
             self.datetime = get_datetime()
-            while os.path.exists(self.output_path_tb):
-                self.datetime = get_datetime()
 
         if self.train:
             logger.info(f'create {self.output_path_tb}')

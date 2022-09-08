@@ -1,9 +1,9 @@
-name: faster_rcnn_r_50_fpn_3x
-ref: RCNN2BEVTask
-datetime: FasterRCNN2BEV-finetune
-notes: a configuration for FasterRCNN
+name: DINO
+ref: DINO2BEVTask
+datetime:
+notes: a configuration for DINO
 src_folder: src
-output_path: log/test
+output_path: logs/test
 dataset_path: data/CityUHK-X-BEV
 train_setting:
 dataloader:
@@ -27,10 +27,10 @@ dataloader:
         batch_size: 2
         num_workers: 2
         pin_memory: true
-dino_config_file: ./bev_config/DINO/DINO_4scale_swin.py
+dino_config_file: ./configs/DINO/DINO_4scale_swin.py
 pose_net:
     ref: PoseNet
-    pth_path: ./PoseNet.pth
+    pth_path: ./checkpoints/PoseNet.pth
     kwargs:
         encoder_type: vgg16_bn
         encoder_pretrained: false

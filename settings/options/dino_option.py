@@ -23,20 +23,20 @@ from pytorch_helper.settings.spaces import Spaces
 
 from .test_metric_option import TestMetricOption
 
-__all__ = ['RCNNTaskOption']
+__all__ = ['DINOTaskOption']
 matplotlib.use('Agg')
 
 logger = get_logger(__name__)
 
 
-@Spaces.register(Spaces.NAME.TASK_OPTION, ['RCNNTask', 'RCNN2BEVTask'])
+@Spaces.register(Spaces.NAME.TASK_OPTION, ['DINOTask', 'DINO2BEVTask'])
 @dataclass()
-class RCNNTaskOption(TaskOption):
+class DINOTaskOption(TaskOption):
     dino_config_file: str = None
     pose_net: Union[dict, ModelOption] = None
 
     def __post_init__(self, mode, is_distributed):
-        super(RCNNTaskOption, self).__post_init__(mode, is_distributed)
+        super(DINOTaskOption, self).__post_init__(mode, is_distributed)
         self.dataset_path_det = os.path.join(
             self.dataset_path, 'det'
         )

@@ -1,6 +1,6 @@
 metrics:
-    - bev_config/metrics/chamfer_distance.yaml
-    - bev_config/metrics/density_cluster.yaml
+    - configs/metrics/chamfer_distance.yaml
+    - configs/metrics/density_cluster.yaml
 save_im: true
 save_model_output: true
 label_risk: false
