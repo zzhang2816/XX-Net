@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 import random
 import os
-
+import pickle
 import torch
 import torch.utils.data
 import torchvision
@@ -529,8 +529,8 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
     if image_set == 'train':
         if fix_size:
             return T.Compose([
-                T.RandomHorizontalFlip(),
-                T.RandomResize([(max_size, max(scales))]),
+                # T.RandomHorizontalFlip(),
+                # T.RandomResize([(max_size, max(scales))]),
                 # T.RandomResize([(512, 512)]),
                 normalize,
             ])
@@ -632,7 +632,7 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
             ])   
 
         return T.Compose([
-            T.RandomResize([max(scales)], max_size=max_size),
+            # T.RandomResize([max(scales)], max_size=max_size),
             normalize,
         ])
 
@@ -712,12 +712,12 @@ def build(image_set, args):
         "test": (root / "test2017", root / "annotations" / 'image_info_test-dev2017.json' ),
     }
     '''
-    
+    dataset_path = "./data/CityUHK-X-BEV/det/"
     PATHS = {
-        "train": ( "./", "data/det/train_coco.json"),
-        "train_reg": ("./", "data/det/train_coco.json"),
-        "val": ("./", "data/det/test_coco.json"),
-        "eval_debug": ("./", "data/det/test_coco.json"),
+        "train": ( dataset_path, dataset_path+"train.json"),
+        "train_reg": (dataset_path, dataset_path+"train.json"),
+        "val": (dataset_path, dataset_path+"val.json"),
+        "eval_debug": (dataset_path,  dataset_path+"val.json"),
         # "test": (root / "test2017", root / "annotations" / 'image_info_test-dev2017.json' ),
     }
 
@@ -733,15 +733,64 @@ def build(image_set, args):
         strong_aug = args.strong_aug
     except:
         strong_aug = False
-    dataset = CocoDetection(img_folder, ann_file, 
+
+    coco_dataset = CocoDetection(img_folder, ann_file, 
             transforms=make_coco_transforms(image_set, fix_size=args.fix_size, strong_aug=strong_aug, args=args), 
             return_masks=args.masks,
             aux_target_hacks=aux_target_hacks_list,
         )
+    if image_set == 'train':
+        paras_path = "data/CityUHK-X-BEV/det/camera_data/my_train_list.pkl"
+    elif image_set == 'val':
+        # paras_path = "data/CityUHK-X-BEV/det/camera_data/my_test_list.pkl"
+        return coco_dataset
 
+    other_paras = pickle.load(open(paras_path, 'rb'))
+    dataset = Mydataset(coco_dataset, other_paras)
     return dataset
 
+class Mydataset():
+    def __init__(self, coco_dataset, other_paras):
+        self.coco_dataset = coco_dataset
+        self.camera_fu = torch.Tensor([other_para['camera_fu'] \
+                                for other_para in other_paras])
+        self.camera_fv = torch.Tensor([other_para['camera_fv'] \
+                                for other_para in other_paras])
+        
+        # do normalize
+        self.camera_angle = torch.Tensor([other_para['camera_angle'] \
+                                for other_para in other_paras]) / 1.2
+        self.camera_height = torch.Tensor([other_para['camera_height'] \
+                                for other_para in other_paras]) / 20
 
+        # self.feet = [other_para['feet'] \
+        #                         for other_para in other_paras]
+        # self.world_coord = [other_para['world_coord'] \
+        #                         for other_para in other_paras]
+        bev_coord = torch.stack([other_para['bev_coord'] \
+                                for other_para in other_paras])[:,:2,:].transpose(1,2)
+        bev_coord[:,:,0] /= 384
+        bev_coord[:,:,1] /= 512
+        
+        self.bev_coord = bev_coord
+        self.n_annos = [other_para['n_annos'] \
+                                for other_para in other_paras]
+
+    def __getitem__(self, idx):
+        img, target = self.coco_dataset.__getitem__(idx)
+        i = int(target['image_id'])
+        target['c_fu'] = self.camera_fu[i]
+        target['c_fv'] = self.camera_fv[i]
+        target['n_annos'] = self.n_annos[i]
+        # target['feet'] = self.feet[i]
+        target['angle'] = self.camera_angle[i]
+        target['height'] = self.camera_height[i]
+        target['bev_coord'] = self.bev_coord[i]
+        # target['world_coord'] = self.world_coord[i]
+        return img, target
+
+    def __len__(self):
+        return self.coco_dataset.__len__()
 
 if __name__ == "__main__":
     # # aux_target_hacks_list = []

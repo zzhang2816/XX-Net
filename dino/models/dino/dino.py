@@ -25,8 +25,10 @@ from dino.util import box_ops
 from dino.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized, inverse_sigmoid)
+from dino.datasets.bev_transform import BEVTransform
 
 from .backbone import build_backbone
+from .pose_module import build_pose_module
 from .matcher import build_matcher
 from .segmentation import (DETRsegm, PostProcessPanoptic, PostProcessSegm,
                            dice_loss)
@@ -37,7 +39,7 @@ from ..registry import MODULE_BUILD_FUNCS
 from .dn_components import prepare_for_cdn,dn_post_process
 class DINO(nn.Module):
     """ This is the Cross-Attention Detector module that performs object detection """
-    def __init__(self, backbone, transformer, num_classes, num_queries, 
+    def __init__(self, backbone, transformer, pose_module, num_classes, num_queries, 
                     aux_loss=False, iter_update=False,
                     query_dim=2, 
                     random_refpoints_xy=False,
@@ -74,6 +76,7 @@ class DINO(nn.Module):
         super().__init__()
         self.num_queries = num_queries
         self.transformer = transformer
+        self.pose_module = pose_module
         self.num_classes = num_classes
         self.hidden_dim = hidden_dim = transformer.d_model
         self.num_feature_levels = num_feature_levels
@@ -239,7 +242,9 @@ class DINO(nn.Module):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         features, poss = self.backbone(samples)
-
+        
+        last_backbone_layer_feature, _ = features[-1].decompose()
+        angle, height = self.pose_module(last_backbone_layer_feature)
         srcs = []
         masks = []
         for l, feat in enumerate(features):
@@ -329,6 +334,8 @@ class DINO(nn.Module):
                 ]
 
         out['dn_meta'] = dn_meta
+        out['angle'] = angle
+        out['height'] = height
 
         return out
 
@@ -362,6 +369,8 @@ class SetCriterion(nn.Module):
         self.weight_dict = weight_dict
         self.losses = losses
         self.focal_alpha = focal_alpha
+        self.bev_transform = BEVTransform()
+        self.other_loss_disable = False
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (Binary focal loss)
@@ -431,6 +440,89 @@ class SetCriterion(nn.Module):
 
         return losses
 
+    def loss_height(self, outputs, targets, indices, num_boxes):
+        pred_cam_hs = outputs['height']
+        device = pred_cam_hs.device
+        gt_cam_hs = torch.Tensor([t['height'] for t in targets]).to(device)
+        res = F.mse_loss(pred_cam_hs, gt_cam_hs)
+        losses = {'loss_height': res}
+        return losses
+    
+    def loss_angle(self, outputs, targets, indices, num_boxes):
+        pred_cam_as = outputs['angle']
+        device = pred_cam_as.device
+        gt_cam_as = torch.Tensor([t['angle'] for t in targets]).to(device)
+        res = F.mse_loss(pred_cam_as, gt_cam_as)
+        losses = {'loss_angle': res}
+        return losses
+    
+    def loss_goal(self, outputs, targets, indices, num_boxes):
+        im_size = torch.Tensor(targets[0]['orig_size'])
+        src_boxes = outputs['pred_boxes']
+
+        # device = "cuda"
+        # src_boxes = [t['boxes'] for t in targets]
+
+
+        src_idxs = [src for (src, _) in indices]
+        num_anno = [len(idx) for idx in src_idxs]
+        bs = len(src_idxs)
+
+        cam_as = outputs['angle']*1.2
+        cam_hs = outputs['height']*20
+        device = cam_as.device
+        # cam_hs = torch.Tensor([t['height'] for t in targets]).to(device)*20
+        # cam_as = torch.Tensor([t['angle'] for t in targets]).to(device)*1.2
+        
+        feet_pixels = torch.zeros((bs, 3, 121))
+        feet_pixels[:,2,:] = 1
+        
+        if targets[0]['n_annos']!=len(src_idxs[0]):
+        # if targets[0]['n_annos']!=len(src_boxes[0]):
+            with open("new.txt", 'a') as f:
+                f.write(str(targets[0]["image_id"].int())+"\n")
+            return {'loss_goal': 0}
+
+        for i,idx in enumerate(src_idxs):
+            src_boxes_bi = src_boxes[i][idx]
+            # src_boxes_bi = src_boxes[i]
+            feet_pixels[i,0,:len(src_boxes_bi)] = src_boxes_bi[:,0]*im_size[1]
+            feet_pixels[i,1,:len(src_boxes_bi)] = (src_boxes_bi[:,1]+src_boxes_bi[:,3]/2)*im_size[0]
+
+        
+        # tmp = torch.stack([target['feet'] for target in targets])
+
+        camera_fus = torch.Tensor([t['c_fu'] for t in targets]).to(device)
+        camera_fvs = torch.Tensor([t['c_fv'] for t in targets]).to(device)
+        bev_coord = torch.cat([t['bev_coord'][i] for t, (_, i) in zip(targets, indices)])
+        # feet_gt = torch.stack([t['world_coord'] for t in targets])
+
+        
+        i2w_mats, scales, centers = self.bev_transform.get_bev_param(
+            im_size, cam_hs, cam_as, camera_fus, camera_fvs, w2i=False
+        )
+        
+        feet_positions = self.bev_transform.image_coord_to_world_coord(
+                feet_pixels.to(device), i2w_mats
+        )
+
+        feet_bev_pixels = self.bev_transform.world_coord_to_bev_coord(
+            im_size, feet_positions, scales, centers
+        )[:,:2,:].transpose(1,2)
+        feet_bev_pixels = feet_bev_pixels/im_size
+        feet_bev_pixels = torch.cat([bev_pix[:n,:] for bev_pix,n in zip(feet_bev_pixels,num_anno)])
+
+        res = F.mse_loss(feet_bev_pixels.to(device),bev_coord)
+        
+        # if res>1:
+        #     print(res)
+        #     print(targets[0]["image_id"])
+        #     print(feet_bev_pixels[0,:20,:])
+        #     print(bev_coord[0,:20,:])
+        #     assert 0==1
+        losses = {'loss_goal': res}
+        return losses
+
     def loss_masks(self, outputs, targets, indices, num_boxes):
         """Compute the losses related to the masks: the focal loss and the dice loss.
            targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
@@ -478,6 +570,9 @@ class SetCriterion(nn.Module):
             'cardinality': self.loss_cardinality,
             'boxes': self.loss_boxes,
             'masks': self.loss_masks,
+            'height': self.loss_height,
+            'angle': self.loss_angle,
+            'goal': self.loss_goal
             # 'dn_labels': self.loss_dn_labels,
             # 'dn_boxes': self.loss_dn_boxes
         }
@@ -554,9 +649,12 @@ class SetCriterion(nn.Module):
             l_dict['cardinality_error_dn'] = torch.as_tensor(0.).to('cuda')
             losses.update(l_dict)
 
-
         for loss in self.losses:
             losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
+
+        if not self.other_loss_disable:
+            for loss in ['height', 'angle', 'goal']:
+                losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
@@ -651,6 +749,11 @@ class SetCriterion(nn.Module):
 
         return output_known_lbs_bboxes,single_pad,num_dn_groups
 
+    def disable_other_loss(self):
+        self.other_loss_disable = True
+
+    def enable_other_loss(self):
+        self.other_loss_disable = False
 
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
@@ -728,7 +831,9 @@ def build_dino(args):
     backbone = build_backbone(args)
 
     transformer = build_deformable_transformer(args)
-
+    pose_in_channels = backbone.num_channels[-1]
+    pose_hid_channels = args.hidden_dim
+    pose_module = build_pose_module(pose_in_channels, pose_hid_channels)
     try:
         match_unstable_error = args.match_unstable_error
         dn_labelbook_size = args.dn_labelbook_size
@@ -749,6 +854,7 @@ def build_dino(args):
     model = DINO(
         backbone,
         transformer,
+        pose_module,
         num_classes=num_classes,
         num_queries=args.num_queries,
         aux_loss=True,
@@ -780,7 +886,9 @@ def build_dino(args):
     weight_dict = {'loss_ce': args.cls_loss_coef, 'loss_bbox': args.bbox_loss_coef}
     weight_dict['loss_giou'] = args.giou_loss_coef
     clean_weight_dict_wo_dn = copy.deepcopy(weight_dict)
-
+    weight_dict.update({'loss_angle': args.angle_loss_coef, 'loss_height': args.height_loss_coef,
+                    'loss_goal':args.goal_loss_coef})
+    
     
     # for DN training
     if args.use_dn:

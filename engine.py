@@ -8,19 +8,20 @@ import os
 import sys
 from typing import Iterable
 
-from util.utils import slprint, to_device
+from dino.util.utils import slprint, to_device
 
 import torch
 
-import util.misc as utils
-from datasets.coco_eval import CocoEvaluator
-from datasets.panoptic_eval import PanopticEvaluator
+import dino.util.misc as utils
+from dino.datasets.coco_eval import CocoEvaluator
+from dino.datasets.panoptic_eval import PanopticEvaluator
 
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, max_norm: float = 0, 
                     wo_class_error=False, lr_scheduler=None, args=None, logger=None, ema_m=None):
+    criterion.enable_other_loss()
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
     try:
@@ -39,10 +40,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     _cnt = 0
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header, logger=logger):
-
+        # print(samples.shape)
+        # print(targets[0])
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
+        
         with torch.cuda.amp.autocast(enabled=args.amp):
             if need_tgt_for_training:
                 outputs = model(samples, targets)
@@ -128,6 +130,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
 
     model.eval()
     criterion.eval()
+    criterion.disable_other_loss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     if not wo_class_error:
@@ -160,8 +163,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         # import ipdb; ipdb.set_trace()
         # targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         targets = [{k: to_device(v, device) for k, v in t.items()} for t in targets]
-        print(targets)
-        assert 0==1
+        
 
         with torch.cuda.amp.autocast(enabled=args.amp):
             if need_tgt_for_training:
@@ -194,6 +196,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         res = {target['image_id'].item(): output for target, output in zip(targets, results)}
         # import ipdb; ipdb.set_trace()
         if coco_evaluator is not None:
+            # print("let's see what is res: ",res)
             coco_evaluator.update(res)
 
         if panoptic_evaluator is not None:

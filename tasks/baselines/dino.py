@@ -58,11 +58,11 @@ class DINOTask(LauncherTask):
             self.model, self.postprocessors = trained_model(self.model_config_path)
             self.loss_fn = self.option.loss.build()
 
-            self.use_inferred_pose = not self.option.test_option.pose_oracle
-            if self.use_inferred_pose:
-                self.pose_net = self.option.pose_net.build()[0]
-                self.pose_net.cuda()
-                self.pose_net.eval()
+            # self.use_inferred_pose = not self.option.test_option.pose_oracle
+            # if self.use_inferred_pose:
+            #     self.pose_net = self.option.pose_net.build()[0]
+            #     self.pose_net.cuda()
+            #     self.pose_net.eval()
             self.bev_transform = BEVTransform()
 
             sigma = 5

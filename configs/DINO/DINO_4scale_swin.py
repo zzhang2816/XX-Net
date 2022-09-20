@@ -9,11 +9,11 @@ lr_backbone_names = ['backbone.0']
 lr_linear_proj_names = ['reference_points', 'sampling_offsets']
 lr_linear_proj_mult = 0.1
 ddetr_lr_param = False
-batch_size = 2
+batch_size = 1
 weight_decay = 0.0001
-epochs = 28
+epochs = 20
 lr_drop = 11
-save_checkpoint_interval = 1
+save_checkpoint_interval = 5
 clip_max_norm = 0.1
 onecyclelr = False
 multi_step_lr = False
@@ -83,6 +83,10 @@ bbox_loss_coef = 5.0
 giou_loss_coef = 2.0
 enc_loss_coef = 1.0
 interm_loss_coef = 1.0
+angle_loss_coef = 1.0
+height_loss_coef = 1.0
+goal_loss_coef = 1.0
+
 no_interm_box_loss = False
 focal_alpha = 0.25
 
@@ -111,7 +115,7 @@ ema_epoch = 0
 
 use_detached_boxes_dec_out = False
 
-model_checkpoint_path = "logs/DINO/R50-MS4/checkpoint0019.pth"
-device = 'cuda' 
-backbone_dir = './checkpoints/'
+# model_checkpoint_path = "logs/DINO/R50-MS4/checkpoint0019.pth"
+# device = 'cuda' 
+# backbone_dir = './checkpoints/'
 

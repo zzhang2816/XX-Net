@@ -10,25 +10,25 @@ import time
 from pathlib import Path
 import os, sys
 from typing import Optional
-from util.get_param_dicts import get_param_dict
+from dino.util.get_param_dicts import get_param_dict
 
 
 
 
-from util.logger import setup_logger
+from dino.util.logger import setup_logger
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 
-import datasets
-import util.misc as utils
-from datasets import build_dataset, get_coco_api_from_dataset
+import dino.datasets
+import dino.util.misc as utils
+from dino.datasets import build_dataset, get_coco_api_from_dataset
 from engine import evaluate, train_one_epoch, test
-import dinomodels
-from util.slconfig import DictAction, SLConfig
-from util.utils import ModelEma, BestMetricHolder
+from dino import models
+from dino.util.slconfig import DictAction, SLConfig
+from dino.util.utils import ModelEma, BestMetricHolder
 
 
 def get_args_parser():
@@ -86,7 +86,7 @@ def get_args_parser():
 
 def build_model_main(args):
     # we use register to maintain models from catdet6 on.
-    from dinomodels.registry import MODULE_BUILD_FUNCS
+    from dino.models.registry import MODULE_BUILD_FUNCS
     assert args.modelname in MODULE_BUILD_FUNCS._module_dict
     build_func = MODULE_BUILD_FUNCS.get(args.modelname)
     model, criterion, postprocessors = build_func(args)
@@ -133,12 +133,11 @@ def main(args):
     logger.info('world size: {}'.format(args.world_size))
     logger.info('rank: {}'.format(args.rank))
     logger.info('local_rank: {}'.format(args.local_rank))
-    logger.info("args: " + str(args) + '\n')
+    # logger.info("args: " + str(args) + '\n')
 
 
     if args.frozen_weights is not None:
         assert args.masks, "Frozen training is meant for segmentation only"
-    print(args)
 
     device = torch.device(args.device)
 
@@ -150,7 +149,7 @@ def main(args):
 
     # build model
     model, criterion, postprocessors = build_model_main(args)
-    wo_class_error = False
+    wo_class_error = True
     model.to(device)
 
     # ema
@@ -176,11 +175,76 @@ def main(args):
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
 
+    # def loss_goal(targets):
+    #     from dino.datasets.bev_transform import BEVTransform
+    #     bev_transform = BEVTransform()
+    #     im_size = torch.Tensor(targets[0]['orig_size'])
+        
+    #     # src_boxes = outputs['pred_boxes']
+    #     device = "cuda"
+    #     src_boxes = [t['boxes'] for t in targets]
+
+    #     if targets[0]['n_annos']!=len(src_boxes[0]):
+    #         with open("new.txt", 'a') as f:
+    #             f.write(str(targets[0]["image_id"].int()))
+    #         return {'loss_goal': 0}
+
+    #     idxs = [0]
+
+    #     bs = len(idxs)
+
+    #     # cam_as = outputs['angle']
+    #     # cam_hs = outputs['height']
+    #     # device = cam_as.device
+    #     cam_hs = torch.Tensor([t['height'] for t in targets]).to(device)
+    #     cam_as = torch.Tensor([t['angle'] for t in targets]).to(device)
+        
+
+    #     feet_pixels = torch.zeros((bs, 3, 121))
+    #     feet_pixels[:,2,:] = 1
+        
+    #     for i,idx in enumerate(idxs):
+    #         src_boxes_bi = src_boxes[i]
+    #         feet_pixels[i,0,:len(src_boxes_bi)] = src_boxes_bi[:,0]*im_size[1]
+    #         feet_pixels[i,1,:len(src_boxes_bi)] = (src_boxes_bi[:,1]+src_boxes_bi[:,3]/2)*im_size[0]
+
+    #     # tmp = torch.stack([target['feet'] for target in targets])
+
+    #     camera_fus = torch.Tensor([t['c_fu'] for t in targets]).to(device)
+    #     camera_fvs = torch.Tensor([t['c_fv'] for t in targets]).to(device)
+    #     # world_coord = torch.stack([t['world_coord'] for t in targets]).to(device)
+
+    #     i2w_mats, _, _ = bev_transform.get_bev_param(
+    #         im_size, cam_hs, cam_as, camera_fus, camera_fvs, w2i=False
+    #     )
+        
+    #     pred_world_coords_homo = bev_transform.image_coord_to_world_coord(
+    #             feet_pixels.to(device), i2w_mats
+    #     )
+
+        # print(pred_world_coords_homo[0,:2,:20])
+        # assert 0==1
+        # import torch.nn.functional as F
+        # res = F.mse_loss(pred_world_coords_homo[:,:2,:],world_coord[:,:2,:])
+        # if res>1:
+        #     print(res)
+        #     print(targets[0]["image_id"])
+        #     print(targets[0]["size"])
+        #     print(tmp[0,:2,:20])
+        #     print(feet_pixels[0,:2,:20])
+        #     assert 0==1
+        # losses = {'loss_goal': res}
+        # return losses
+
+    # targets = dataset_train.__getitem__(0)
+    # loss_goal([targets[1]])
+    # assert 0==1
+
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
         sampler_val = DistributedSampler(dataset_val, shuffle=False)
     else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
+        sampler_train = torch.utils.data.SequentialSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     batch_sampler_train = torch.utils.data.BatchSampler(
@@ -235,17 +299,17 @@ def main(args):
     if (not args.resume) and args.pretrain_model_path:
         checkpoint = torch.load(args.pretrain_model_path, map_location='cpu')['model']
         from collections import OrderedDict
-        _ignorekeywordlist = args.finetune_ignore if args.finetune_ignore else []
-        # _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
-        #  "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
-        #  "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
-        #  "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
-        #  "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
-        #  "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
-        #  "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
-        #  "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
-        #  "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
-        #  "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
+        # _ignorekeywordlist = args.finetune_ignore if args.finetune_ignore else []
+        _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
+         "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
+         "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
+         "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
+         "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
+         "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
+         "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
+         "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
+         "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
+         "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
         ignorelist = []
 
         def check_keep(keyname, ignorekeywordlist):
@@ -317,46 +381,49 @@ def main(args):
                     })
                 utils.save_on_master(weights, checkpoint_path)
                 
-        # eval
-        test_stats, coco_evaluator = evaluate(
-            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
-            wo_class_error=wo_class_error, args=args, logger=(logger if args.save_log else None)
-        )
-        map_regular = test_stats['coco_eval_bbox'][0]
-        _isbest = best_map_holder.update(map_regular, epoch, is_ema=False)
-        if _isbest:
-            checkpoint_path = output_dir / 'checkpoint_best_regular.pth'
-            utils.save_on_master({
-                'model': model_without_ddp.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'epoch': epoch,
-                'args': args,
-            }, checkpoint_path)
-        log_stats = {
-            **{f'train_{k}': v for k, v in train_stats.items()},
-            **{f'test_{k}': v for k, v in test_stats.items()},
-        }
+        # eval 
+        # NOTE: This is temporary
+        coco_evaluator = None
+        log_stats = {}
+        # test_stats, coco_evaluator = evaluate(
+        #     model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
+        #     wo_class_error=wo_class_error, args=args, logger=(logger if args.save_log else None)
+        # )
+        # map_regular = test_stats['coco_eval_bbox'][0]
+        # _isbest = best_map_holder.update(map_regular, epoch, is_ema=False)
+        # if _isbest:
+        #     checkpoint_path = output_dir / 'checkpoint_best_regular.pth'
+        #     utils.save_on_master({
+        #         'model': model_without_ddp.state_dict(),
+        #         'optimizer': optimizer.state_dict(),
+        #         'lr_scheduler': lr_scheduler.state_dict(),
+        #         'epoch': epoch,
+        #         'args': args,
+        #     }, checkpoint_path)
+        # log_stats = {
+        #     **{f'train_{k}': v for k, v in train_stats.items()},
+        #     **{f'test_{k}': v for k, v in test_stats.items()},
+        # }
 
         # eval ema
-        if args.use_ema:
-            ema_test_stats, ema_coco_evaluator = evaluate(
-                ema_m.module, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
-                wo_class_error=wo_class_error, args=args, logger=(logger if args.save_log else None)
-            )
-            log_stats.update({f'ema_test_{k}': v for k,v in ema_test_stats.items()})
-            map_ema = ema_test_stats['coco_eval_bbox'][0]
-            _isbest = best_map_holder.update(map_ema, epoch, is_ema=True)
-            if _isbest:
-                checkpoint_path = output_dir / 'checkpoint_best_ema.pth'
-                utils.save_on_master({
-                    'model': ema_m.module.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
-                    'epoch': epoch,
-                    'args': args,
-                }, checkpoint_path)
-        log_stats.update(best_map_holder.summary())
+        # if args.use_ema:
+            # ema_test_stats, ema_coco_evaluator = evaluate(
+            #     ema_m.module, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
+            #     wo_class_error=wo_class_error, args=args, logger=(logger if args.save_log else None)
+            # )
+            # log_stats.update({f'ema_test_{k}': v for k,v in ema_test_stats.items()})
+            # map_ema = ema_test_stats['coco_eval_bbox'][0]
+            # _isbest = best_map_holder.update(map_ema, epoch, is_ema=True)
+            # if _isbest:
+            #     checkpoint_path = output_dir / 'checkpoint_best_ema.pth'
+            #     utils.save_on_master({
+            #         'model': ema_m.module.state_dict(),
+            #         'optimizer': optimizer.state_dict(),
+            #         'lr_scheduler': lr_scheduler.state_dict(),
+            #         'epoch': epoch,
+            #         'args': args,
+            #     }, checkpoint_path)
+        # log_stats.update(best_map_holder.summary())
 
         ep_paras = {
                 'epoch': epoch,
@@ -393,7 +460,7 @@ def main(args):
     # remove the copied files.
     copyfilelist = vars(args).get('copyfilelist')
     if copyfilelist and args.local_rank == 0:
-        from datasets.data_util import remove
+        from dino.datasets.data_util import remove
         for filename in copyfilelist:
             print("Removing: {}".format(filename))
             remove(filename)
