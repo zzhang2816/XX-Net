@@ -174,72 +174,7 @@ def main(args):
 
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
-
-    # def loss_goal(targets):
-    #     from dino.datasets.bev_transform import BEVTransform
-    #     bev_transform = BEVTransform()
-    #     im_size = torch.Tensor(targets[0]['orig_size'])
-        
-    #     # src_boxes = outputs['pred_boxes']
-    #     device = "cuda"
-    #     src_boxes = [t['boxes'] for t in targets]
-
-    #     if targets[0]['n_annos']!=len(src_boxes[0]):
-    #         with open("new.txt", 'a') as f:
-    #             f.write(str(targets[0]["image_id"].int()))
-    #         return {'loss_goal': 0}
-
-    #     idxs = [0]
-
-    #     bs = len(idxs)
-
-    #     # cam_as = outputs['angle']
-    #     # cam_hs = outputs['height']
-    #     # device = cam_as.device
-    #     cam_hs = torch.Tensor([t['height'] for t in targets]).to(device)
-    #     cam_as = torch.Tensor([t['angle'] for t in targets]).to(device)
-        
-
-    #     feet_pixels = torch.zeros((bs, 3, 121))
-    #     feet_pixels[:,2,:] = 1
-        
-    #     for i,idx in enumerate(idxs):
-    #         src_boxes_bi = src_boxes[i]
-    #         feet_pixels[i,0,:len(src_boxes_bi)] = src_boxes_bi[:,0]*im_size[1]
-    #         feet_pixels[i,1,:len(src_boxes_bi)] = (src_boxes_bi[:,1]+src_boxes_bi[:,3]/2)*im_size[0]
-
-    #     # tmp = torch.stack([target['feet'] for target in targets])
-
-    #     camera_fus = torch.Tensor([t['c_fu'] for t in targets]).to(device)
-    #     camera_fvs = torch.Tensor([t['c_fv'] for t in targets]).to(device)
-    #     # world_coord = torch.stack([t['world_coord'] for t in targets]).to(device)
-
-    #     i2w_mats, _, _ = bev_transform.get_bev_param(
-    #         im_size, cam_hs, cam_as, camera_fus, camera_fvs, w2i=False
-    #     )
-        
-    #     pred_world_coords_homo = bev_transform.image_coord_to_world_coord(
-    #             feet_pixels.to(device), i2w_mats
-    #     )
-
-        # print(pred_world_coords_homo[0,:2,:20])
-        # assert 0==1
-        # import torch.nn.functional as F
-        # res = F.mse_loss(pred_world_coords_homo[:,:2,:],world_coord[:,:2,:])
-        # if res>1:
-        #     print(res)
-        #     print(targets[0]["image_id"])
-        #     print(targets[0]["size"])
-        #     print(tmp[0,:2,:20])
-        #     print(feet_pixels[0,:2,:20])
-        #     assert 0==1
-        # losses = {'loss_goal': res}
-        # return losses
-
-    # targets = dataset_train.__getitem__(0)
-    # loss_goal([targets[1]])
-    # assert 0==1
-
+    
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
         sampler_val = DistributedSampler(dataset_val, shuffle=False)

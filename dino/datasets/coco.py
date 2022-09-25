@@ -530,9 +530,9 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
         if fix_size:
             return T.Compose([
                 # T.RandomHorizontalFlip(),
-                # T.RandomResize([(max_size, max(scales))]),
-                # T.RandomResize([(512, 512)]),
+                T.RandomResize([(max_size, max(scales))]),
                 normalize,
+                # T.RandomErasing(p=1)
             ])
         
         # if os.environ.get('IPDB_DEBUG_SHILONG') == 'INFO':
@@ -765,14 +765,14 @@ class Mydataset():
 
         # self.feet = [other_para['feet'] \
         #                         for other_para in other_paras]
-        # self.world_coord = [other_para['world_coord'] \
-        #                         for other_para in other_paras]
-        bev_coord = torch.stack([other_para['bev_coord'] \
+        self.world_coord = torch.stack([other_para['world_coord'] \
                                 for other_para in other_paras])[:,:2,:].transpose(1,2)
-        bev_coord[:,:,0] /= 384
-        bev_coord[:,:,1] /= 512
+        # bev_coord = torch.stack([other_para['bev_coord'] \
+        #                         for other_para in other_paras])[:,:2,:].transpose(1,2)
+        # bev_coord[:,:,0] /= 384
+        # bev_coord[:,:,1] /= 512
         
-        self.bev_coord = bev_coord
+        # self.bev_coord = bev_coord
         self.n_annos = [other_para['n_annos'] \
                                 for other_para in other_paras]
 
@@ -785,8 +785,8 @@ class Mydataset():
         # target['feet'] = self.feet[i]
         target['angle'] = self.camera_angle[i]
         target['height'] = self.camera_height[i]
-        target['bev_coord'] = self.bev_coord[i]
-        # target['world_coord'] = self.world_coord[i]
+        # target['bev_coord'] = self.bev_coord[i]
+        target['world_coord'] = self.world_coord[i]
         return img, target
 
     def __len__(self):

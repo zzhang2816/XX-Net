@@ -11,7 +11,7 @@ lr_linear_proj_mult = 0.1
 ddetr_lr_param = False
 batch_size = 1
 weight_decay = 0.0001
-epochs = 20
+epochs = 1
 lr_drop = 11
 save_checkpoint_interval = 5
 clip_max_norm = 0.1
@@ -85,7 +85,7 @@ enc_loss_coef = 1.0
 interm_loss_coef = 1.0
 angle_loss_coef = 1.0
 height_loss_coef = 1.0
-goal_loss_coef = 1.0
+goal_loss_coef = 0.1
 
 no_interm_box_loss = False
 focal_alpha = 0.25

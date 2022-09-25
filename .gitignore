@@ -27,3 +27,4 @@ checkpoints/
 data/
 logs/
 *.txt
+trail_*.py

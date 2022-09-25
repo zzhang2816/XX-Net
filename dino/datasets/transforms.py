@@ -163,6 +163,15 @@ class RandomCrop(object):
         return crop(img, target, region)
 
 
+class rawRandomErasing(object):
+
+    def __init__(self, *args, **kwargs):
+        self.eraser = T.RandomErasing(*args, **kwargs)
+
+    def __call__(self, img, target):
+        return self.eraser(img), target
+
+
 class RandomSizeCrop(object):
     def __init__(self, min_size: int, max_size: int):
         self.min_size = min_size
@@ -245,6 +254,7 @@ class RandomErasing(object):
         self.eraser = T.RandomErasing(*args, **kwargs)
 
     def __call__(self, img, target):
+        img = F.to_tensor(img)
         return self.eraser(img), target
 
 

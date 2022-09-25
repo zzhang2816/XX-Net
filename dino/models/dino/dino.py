@@ -460,10 +460,6 @@ class SetCriterion(nn.Module):
         im_size = torch.Tensor(targets[0]['orig_size'])
         src_boxes = outputs['pred_boxes']
 
-        # device = "cuda"
-        # src_boxes = [t['boxes'] for t in targets]
-
-
         src_idxs = [src for (src, _) in indices]
         num_anno = [len(idx) for idx in src_idxs]
         bs = len(src_idxs)
@@ -471,55 +467,35 @@ class SetCriterion(nn.Module):
         cam_as = outputs['angle']*1.2
         cam_hs = outputs['height']*20
         device = cam_as.device
-        # cam_hs = torch.Tensor([t['height'] for t in targets]).to(device)*20
-        # cam_as = torch.Tensor([t['angle'] for t in targets]).to(device)*1.2
         
         feet_pixels = torch.zeros((bs, 3, 121))
         feet_pixels[:,2,:] = 1
         
         if targets[0]['n_annos']!=len(src_idxs[0]):
-        # if targets[0]['n_annos']!=len(src_boxes[0]):
             with open("new.txt", 'a') as f:
                 f.write(str(targets[0]["image_id"].int())+"\n")
             return {'loss_goal': 0}
 
         for i,idx in enumerate(src_idxs):
             src_boxes_bi = src_boxes[i][idx]
-            # src_boxes_bi = src_boxes[i]
             feet_pixels[i,0,:len(src_boxes_bi)] = src_boxes_bi[:,0]*im_size[1]
             feet_pixels[i,1,:len(src_boxes_bi)] = (src_boxes_bi[:,1]+src_boxes_bi[:,3]/2)*im_size[0]
 
-        
-        # tmp = torch.stack([target['feet'] for target in targets])
-
         camera_fus = torch.Tensor([t['c_fu'] for t in targets]).to(device)
         camera_fvs = torch.Tensor([t['c_fv'] for t in targets]).to(device)
-        bev_coord = torch.cat([t['bev_coord'][i] for t, (_, i) in zip(targets, indices)])
-        # feet_gt = torch.stack([t['world_coord'] for t in targets])
+        feet_gt = torch.cat([t['world_coord'][i] for t, (_, i) in zip(targets, indices)])
 
-        
-        i2w_mats, scales, centers = self.bev_transform.get_bev_param(
+        i2w_mats, _, _ = self.bev_transform.get_bev_param(
             im_size, cam_hs, cam_as, camera_fus, camera_fvs, w2i=False
         )
         
         feet_positions = self.bev_transform.image_coord_to_world_coord(
                 feet_pixels.to(device), i2w_mats
-        )
-
-        feet_bev_pixels = self.bev_transform.world_coord_to_bev_coord(
-            im_size, feet_positions, scales, centers
         )[:,:2,:].transpose(1,2)
-        feet_bev_pixels = feet_bev_pixels/im_size
-        feet_bev_pixels = torch.cat([bev_pix[:n,:] for bev_pix,n in zip(feet_bev_pixels,num_anno)])
 
-        res = F.mse_loss(feet_bev_pixels.to(device),bev_coord)
+        feet_positions = torch.cat([pos[:n,:] for pos,n in zip(feet_positions,num_anno)])
+        res = F.mse_loss(feet_positions.to(device),feet_gt)
         
-        # if res>1:
-        #     print(res)
-        #     print(targets[0]["image_id"])
-        #     print(feet_bev_pixels[0,:20,:])
-        #     print(bev_coord[0,:20,:])
-        #     assert 0==1
         losses = {'loss_goal': res}
         return losses
 
