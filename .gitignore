@@ -27,4 +27,5 @@ checkpoints/
 data/
 logs/
 *.txt
-trail_*.py
+trail*
+temp*

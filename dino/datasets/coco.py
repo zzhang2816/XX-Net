@@ -486,10 +486,7 @@ class ConvertCocoPolysToMask(object):
 
 def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None):
 
-    normalize = T.Compose([
-        T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+    normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     # config the params for data aug
     scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
@@ -530,9 +527,11 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
         if fix_size:
             return T.Compose([
                 # T.RandomHorizontalFlip(),
-                T.RandomResize([(max_size, max(scales))]),
-                normalize,
-                # T.RandomErasing(p=1)
+                # T.RandomResize([(max_size, max(scales))]),
+                # normalize,
+                T.ToTensor(),
+                T.OcclusionArgument(p=0.8,scale=(0.0005, 0.001), ratio=(1, 1.5))
+                # T.RandomErasing(p=1,scale=(0.005, 0.005), ratio=(1, 1))
             ])
         
         # if os.environ.get('IPDB_DEBUG_SHILONG') == 'INFO':
@@ -619,7 +618,9 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
                     T.RandomResize(scales, max_size=max_size),
                 ])
             ),
+            T.ToTensor(),
             normalize,
+            # T.OcclusionArgument(p=0.8,scale=(0.0005, 0.001), ratio=(1, 1.5), value=[0.485, 0.456, 0.406]),
         ])
 
     if image_set in ['val', 'eval_debug', 'train_reg', 'test']:
@@ -632,8 +633,10 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
             ])   
 
         return T.Compose([
-            # T.RandomResize([max(scales)], max_size=max_size),
+            T.RandomResize([max(scales)], max_size=max_size),
+            T.ToTensor(),
             normalize,
+            # T.OcclusionArgument(p=0.8,scale=(0.0005, 0.001), ratio=(1, 1.5), value=[0.485, 0.456, 0.406]),
         ])
 
 
@@ -765,28 +768,28 @@ class Mydataset():
 
         # self.feet = [other_para['feet'] \
         #                         for other_para in other_paras]
-        self.world_coord = torch.stack([other_para['world_coord'] \
-                                for other_para in other_paras])[:,:2,:].transpose(1,2)
+        # self.world_coord = torch.stack([other_para['world_coord'] \
+        #                         for other_para in other_paras])[:,:2,:].transpose(1,2)
         # bev_coord = torch.stack([other_para['bev_coord'] \
         #                         for other_para in other_paras])[:,:2,:].transpose(1,2)
         # bev_coord[:,:,0] /= 384
         # bev_coord[:,:,1] /= 512
         
         # self.bev_coord = bev_coord
-        self.n_annos = [other_para['n_annos'] \
-                                for other_para in other_paras]
+        # self.n_annos = [other_para['n_annos'] \
+        #                         for other_para in other_paras]
 
     def __getitem__(self, idx):
         img, target = self.coco_dataset.__getitem__(idx)
         i = int(target['image_id'])
         target['c_fu'] = self.camera_fu[i]
         target['c_fv'] = self.camera_fv[i]
-        target['n_annos'] = self.n_annos[i]
+        # target['n_annos'] = self.n_annos[i]
         # target['feet'] = self.feet[i]
         target['angle'] = self.camera_angle[i]
         target['height'] = self.camera_height[i]
         # target['bev_coord'] = self.bev_coord[i]
-        target['world_coord'] = self.world_coord[i]
+        # target['world_coord'] = self.world_coord[i]
         return img, target
 
     def __len__(self):

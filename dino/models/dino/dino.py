@@ -629,7 +629,7 @@ class SetCriterion(nn.Module):
             losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
 
         if not self.other_loss_disable:
-            for loss in ['height', 'angle', 'goal']:
+            for loss in ['height', 'angle']:
                 losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.

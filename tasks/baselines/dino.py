@@ -151,15 +151,15 @@ class DINOTask(LauncherTask):
             for im in torch.flip(images, [1]) * 255
         ]
         '''
-        if self.use_inferred_pose:
-            pose_inputs = self.dataloader.normalize(images)
-            pred_pose = self.pose_net(pose_inputs.cuda())
+        # if self.use_inferred_pose:
+        #     pose_inputs = self.dataloader.normalize(images)
+        #     pred_pose = self.pose_net(pose_inputs.cuda())
 
         # images = torch.flip(images, [1]) * 255
         mean = torch.Tensor([0.485, 0.456, 0.406])
         std = torch.Tensor([0.229, 0.224, 0.225])
      
-        images = F.resize(images,size = [800, 1066])
+        images = F.resize(images,size = [800, 1333])
         images = F.normalize(images, mean=mean, std=std)
 
         orig_target_sizes = torch.stack([torch.Tensor([height, width]) for _ in range(len(images))], dim=0)
@@ -173,12 +173,16 @@ class DINOTask(LauncherTask):
             pred["boxes"][torch.logical_and(pred['labels'] == 0, pred['scores'] > thershold)]
             for pred in predictions
         ]
+        print(batch.keys())
 
+        
+        '''
         # self.visualize(images[0], person_bboxes[0])
         # pred.pred_boxes.tensor[pred.pred_classes == 0]
         pred = dict(person_bboxes=person_bboxes)
-        
-        pred.update(**pred_pose)
+        camera_paras = {'camera_height': outputs['height']*20, 'camera_angle': outputs['angle']*1.2}
+        # 'angle', 'height'
+        pred.update(**camera_paras)
 
         result = Batch(gt=batch, pred=pred)
         n_coords = [len(bboxes) for bboxes in person_bboxes]
@@ -214,9 +218,9 @@ class DINOTask(LauncherTask):
 
         # image view detection to world coordinates
         im_size = (height, width)
-        key = 'pred' if self.use_inferred_pose else 'gt'
-        cam_h = getattr(result, key)['camera_height']
-        cam_a = getattr(result, key)['camera_angle']
+        # key = 'pred' if self.use_inferred_pose else 'gt'
+        cam_h = result.pred['camera_height']
+        cam_a = result.pred['camera_angle']
         camera_fu = result.gt['camera_fu']
         camera_fv = result.gt['camera_fv']
         i2w_mats, scales, centers = self.bev_transform.get_bev_param(
@@ -258,6 +262,7 @@ class DINOTask(LauncherTask):
         result.loss = self.loss_fn(result.pred, result.gt)
         result.size = bs
         return result
+        '''
 
     def summarize_logging_after_stage(self):
         summary = OrderedDict()

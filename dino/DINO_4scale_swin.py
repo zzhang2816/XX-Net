@@ -16,6 +16,9 @@ def build_model_main(args):
     
 def trained_model(model_config_path):
     args = SLConfig.fromfile(model_config_path) 
+    args.model_checkpoint_path = "checkpoints/checkpoint_20.pth" 
+    args.device = 'cuda' 
+    args.backbone_dir = './checkpoints/'
     model, criterion, postprocessors = build_model_main(args)
     checkpoint = torch.load(args.model_checkpoint_path, map_location='cpu')
     model.load_state_dict(checkpoint['model'])

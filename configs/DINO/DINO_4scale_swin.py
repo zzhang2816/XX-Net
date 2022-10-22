@@ -11,7 +11,7 @@ lr_linear_proj_mult = 0.1
 ddetr_lr_param = False
 batch_size = 1
 weight_decay = 0.0001
-epochs = 1
+epochs = 6
 lr_drop = 11
 save_checkpoint_interval = 5
 clip_max_norm = 0.1
@@ -115,7 +115,7 @@ ema_epoch = 0
 
 use_detached_boxes_dec_out = False
 
-# model_checkpoint_path = "logs/DINO/R50-MS4/checkpoint0019.pth"
+# model_checkpoint_path = "checkpoints/checkpoint_lastest.pth"
 # device = 'cuda' 
 # backbone_dir = './checkpoints/'
 
