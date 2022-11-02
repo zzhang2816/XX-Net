@@ -81,10 +81,19 @@ def prepare_for_cdn(dn_args, training, num_queries, num_classes, hidden_dim, lab
             diff[:, :2] = known_bboxs[:, 2:] / 2
             diff[:, 2:] = known_bboxs[:, 2:] / 2
 
+            '''
             rand_sign = torch.randint_like(known_bboxs, low=0, high=2, dtype=torch.float32) * 2.0 - 1.0
             rand_part = torch.rand_like(known_bboxs)
             rand_part[negative_idx] += 1.0
             rand_part *= rand_sign
+            '''
+
+            rand_sign = torch.randint_like(known_bboxs[negative_idx], low=0, high=2, dtype=torch.float32) * 2.0 - 1.0
+            rand_part = torch.rand_like(known_bboxs)
+            rand_part[negative_idx] += 1.0
+            rand_part[negative_idx] *= rand_sign
+            rand_part[positive_idx] *= torch.Tensor([0,-1,0,-1]).cuda()
+
             known_bbox_ = known_bbox_ + torch.mul(rand_part,
                                                   diff).cuda() * box_noise_scale
             known_bbox_ = known_bbox_.clamp(min=0.0, max=1.0)
