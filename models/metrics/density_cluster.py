@@ -45,6 +45,8 @@ class DensityCluster(nn.Module):
             )
         # process the network output, generate a series maps, masks and etc.
         data = dict(pred=pred, gt=gt)
+        
+        
         metric_result = dict(
             pred=self.process(data, 'pred', dist_metric_result),
             gt=self.process(data, 'gt', dist_metric_result)

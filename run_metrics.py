@@ -104,6 +104,7 @@ class MetricRunner:
         cnt = 0
         test_loader = self.dataloader.test_loader
         for batch in pbar(test_loader, desc='Metric'):
+            
             for k, v in batch.items():
                 batch[k] = v.cuda()
             bs = batch['bev_map'].size(0)
@@ -127,8 +128,8 @@ class MetricRunner:
             result = Result(gt=batch, pred=pred, size=bs)
 
             dist_metric_result = self.run_individual_distance(result)
+            
             self.run_density_cluster(result, dist_metric_result)
-
             self.save_visualization(result)
 
             cnt += bs

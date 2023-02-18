@@ -109,10 +109,11 @@ class DINOTask(LauncherTask):
             #     self.train()
         else:
             self.model.eval()
-            self.pose_net.eval()
+            # self.pose_net.eval()
             for batch in pbar(self.test_loader, desc='Test'):
                 with torch.no_grad():
                     result = self.model_forward(batch)
+                
                 self.update_logging_in_stage(result)
 
             summary = self.summarize_logging_after_stage()
@@ -173,15 +174,14 @@ class DINOTask(LauncherTask):
             pred["boxes"][torch.logical_and(pred['labels'] == 0, pred['scores'] > thershold)]
             for pred in predictions
         ]
-        print(batch.keys())
-
         
-        '''
         # self.visualize(images[0], person_bboxes[0])
         # pred.pred_boxes.tensor[pred.pred_classes == 0]
         pred = dict(person_bboxes=person_bboxes)
         camera_paras = {'camera_height': outputs['height']*20, 'camera_angle': outputs['angle']*1.2}
         # 'angle', 'height'
+        print(camera_paras)
+        print(batch['camera_height'], batch['camera_height'])
         pred.update(**camera_paras)
 
         result = Batch(gt=batch, pred=pred)
@@ -262,7 +262,7 @@ class DINOTask(LauncherTask):
         result.loss = self.loss_fn(result.pred, result.gt)
         result.size = bs
         return result
-        '''
+        
 
     def summarize_logging_after_stage(self):
         summary = OrderedDict()

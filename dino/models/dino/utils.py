@@ -49,14 +49,17 @@ def gen_encoder_output_proposals(memory:Tensor, memory_padding_mask:Tensor, spat
             # import ipdb; ipdb.set_trace()
             wh = torch.ones_like(grid) * learnedwh.sigmoid() * (2.0 ** lvl)
         else:
-            wh = torch.ones_like(grid) * 0.05 * (2.0 ** lvl)
-
+            perspective_factor = torch.logspace(1,0,H_,base=2)[None, :, None, None].to("cuda")
+            wh = torch.ones_like(grid) * 0.05 * (2.0 ** lvl) * perspective_factor
+            wh[:,:,:,0] /= 3 
         # scale = torch.cat([W_[None].unsqueeze(-1), H_[None].unsqueeze(-1)], 1).view(1, 1, 1, 2).repeat(N_, 1, 1, 1)
         # grid = (grid.unsqueeze(0).expand(N_, -1, -1, -1) + 0.5) / scale
         # wh = torch.ones_like(grid) / scale
+
         proposal = torch.cat((grid, wh), -1).view(N_, -1, 4)
         proposals.append(proposal)
         _cur += (H_ * W_)
+
     # import ipdb; ipdb.set_trace()
     output_proposals = torch.cat(proposals, 1)
     output_proposals_valid = ((output_proposals > 0.01) & (output_proposals < 0.99)).all(-1, keepdim=True)
