@@ -242,7 +242,7 @@ class DINO(nn.Module):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         features, poss = self.backbone(samples)
-        
+
         last_backbone_layer_feature, _ = features[-1].decompose()
         angle, height = self.pose_module(last_backbone_layer_feature)
         srcs = []
@@ -548,7 +548,6 @@ class SetCriterion(nn.Module):
             'masks': self.loss_masks,
             'height': self.loss_height,
             'angle': self.loss_angle,
-            'goal': self.loss_goal
             # 'dn_labels': self.loss_dn_labels,
             # 'dn_boxes': self.loss_dn_boxes
         }
@@ -862,8 +861,7 @@ def build_dino(args):
     weight_dict = {'loss_ce': args.cls_loss_coef, 'loss_bbox': args.bbox_loss_coef}
     weight_dict['loss_giou'] = args.giou_loss_coef
     clean_weight_dict_wo_dn = copy.deepcopy(weight_dict)
-    weight_dict.update({'loss_angle': args.angle_loss_coef, 'loss_height': args.height_loss_coef,
-                    'loss_goal':args.goal_loss_coef})
+    weight_dict.update({'loss_angle': args.angle_loss_coef, 'loss_height': args.height_loss_coef})
     
     
     # for DN training

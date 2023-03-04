@@ -610,14 +610,15 @@ def make_coco_transforms(image_set, fix_size=False, strong_aug=False, args=None)
         
         return T.Compose([
             T.RandomHorizontalFlip(),
-            T.RandomSelect(
-                T.RandomResize(scales, max_size=max_size),
-                T.Compose([
-                    T.RandomResize(scales2_resize),
-                    T.RandomSizeCrop(*scales2_crop),
-                    T.RandomResize(scales, max_size=max_size),
-                ])
-            ),
+            T.ResizeDebug((1333, 800)),
+            # T.RandomSelect(
+            #     T.RandomResize(scales, max_size=max_size),
+            #     T.Compose([
+            #         T.RandomResize(scales2_resize),
+            #         T.RandomSizeCrop(*scales2_crop),
+            #         T.RandomResize(scales, max_size=max_size),
+            #     ])
+            # ),
             T.ToTensor(),
             normalize,
             # T.OcclusionArgument(p=0.8,scale=(0.0005, 0.001), ratio=(1, 1.5), value=[0.485, 0.456, 0.406]),
@@ -745,8 +746,8 @@ def build(image_set, args):
     if image_set == 'train':
         paras_path = "data/CityUHK-X-BEV/det/camera_data/my_train_list.pkl"
     elif image_set == 'val':
-        # paras_path = "data/CityUHK-X-BEV/det/camera_data/my_test_list.pkl"
-        return coco_dataset
+        paras_path = "data/CityUHK-X-BEV/det/camera_data/my_test_list.pkl"
+        # return coco_dataset
 
     other_paras = pickle.load(open(paras_path, 'rb'))
     dataset = Mydataset(coco_dataset, other_paras)

@@ -235,16 +235,17 @@ def main(args):
         checkpoint = torch.load(args.pretrain_model_path, map_location='cpu')['model']
         from collections import OrderedDict
         # _ignorekeywordlist = args.finetune_ignore if args.finetune_ignore else []
-        _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
-         "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
-         "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
-         "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
-         "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
-         "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
-         "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
-         "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
-         "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
-         "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
+        # _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
+        #  "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
+        #  "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
+        #  "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
+        #  "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
+        #  "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
+        #  "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
+        #  "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
+        #  "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
+        #  "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
+        _ignorekeywordlist = []
         ignorelist = []
 
         def check_keep(keyname, ignorekeywordlist):

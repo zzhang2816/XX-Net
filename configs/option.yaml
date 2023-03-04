@@ -24,8 +24,8 @@ dataloader:
         scene_mixed: true
         use_augment: true
         valid_ratio: 0.2
-        batch_size: 2
-        num_workers: 2
+        batch_size: 1
+        num_workers: 1
         pin_memory: true
 dino_config_file: ./configs/DINO/DINO_4scale_swin.py
 pose_net:

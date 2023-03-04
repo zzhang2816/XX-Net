@@ -2,7 +2,7 @@ _base_ = ['coco_transformer.py']
 
 num_classes=1
 
-lr = 0.0001
+lr = 0.00001
 param_dict_type = 'default'
 lr_backbone = 1e-05
 lr_backbone_names = ['backbone.0']
@@ -11,7 +11,7 @@ lr_linear_proj_mult = 0.1
 ddetr_lr_param = False
 batch_size = 1
 weight_decay = 0.0001
-epochs = 30
+epochs = 6
 lr_drop = 11
 save_checkpoint_interval = 5
 clip_max_norm = 0.1
@@ -85,7 +85,6 @@ enc_loss_coef = 1.0
 interm_loss_coef = 1.0
 angle_loss_coef = 1.0
 height_loss_coef = 1.0
-goal_loss_coef = 0.1
 
 no_interm_box_loss = False
 focal_alpha = 0.25
@@ -115,7 +114,7 @@ ema_epoch = 0
 
 use_detached_boxes_dec_out = False
 
-# model_checkpoint_path = "./checkpoints/checkpoint_lastest.pth"
-# device = 'cuda' 
-# backbone_dir = './checkpoints/'
+model_checkpoint_path = "logs/train1/checkpoint.pth"
+device = 'cuda' 
+backbone_dir = './checkpoints/'
 

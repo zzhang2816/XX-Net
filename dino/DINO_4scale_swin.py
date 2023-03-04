@@ -16,7 +16,7 @@ def build_model_main(args):
     
 def trained_model(model_config_path):
     args = SLConfig.fromfile(model_config_path) 
-    args.model_checkpoint_path = "./logs/DINO/train1/checkpoint0029.pth" 
+    args.model_checkpoint_path = "./logs/with_pose/checkpoint.pth" 
     args.device = 'cuda' 
     args.backbone_dir = './checkpoints/'
     model, criterion, postprocessors = build_model_main(args)

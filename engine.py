@@ -128,7 +128,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     except:
         need_tgt_for_training = False
 
-    model.eval()
+    # model.eval()
+    model.training = False
     criterion.eval()
     criterion.disable_other_loss()
 

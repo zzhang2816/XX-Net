@@ -28,6 +28,7 @@ from pytorch_helper.utils.meter import Meter
 from pytorch_helper.settings.spaces import Spaces
 
 from dino.DINO_4scale_swin import trained_model
+from torchvision.ops import box_iou
 logger = get_logger(__name__)
 
 
@@ -108,7 +109,8 @@ class DINOTask(LauncherTask):
             # else:
             #     self.train()
         else:
-            self.model.eval()
+            self.model.train()
+            self.model.training = False
             # self.pose_net.eval()
             for batch in pbar(self.test_loader, desc='Test'):
                 with torch.no_grad():
@@ -165,23 +167,37 @@ class DINOTask(LauncherTask):
 
         orig_target_sizes = torch.stack([torch.Tensor([height, width]) for _ in range(len(images))], dim=0)
         outputs = self.model.cuda()(images.cuda())
-        predictions = self.postprocessors['bbox'](outputs, orig_target_sizes.cuda())
 
+        outputs_height = outputs['height']
+        outputs_angle = outputs['angle']
+        outputs = self.postprocessors['bbox'](outputs, orig_target_sizes.cuda())
         # outputs = self.model(inputs)
         # predictions = [output['instances'] for output in outputs]
         thershold = 0.5 # set a thershold
-        person_bboxes = [
-            pred["boxes"][torch.logical_and(pred['labels'] == 0, pred['scores'] > thershold)]
-            for pred in predictions
-        ]
-        
+        min_thershold = 0.1
+
+        person_bboxes = []
+        for output in outputs:
+            scores = output['scores']
+            pred_boxes = output['boxes'][scores>thershold]
+            remain_boxes = output['boxes'][(scores < thershold)&(scores > min_thershold)]
+
+            for box in remain_boxes:
+                isMiss = torch.all(box_iou(box[None,:], pred_boxes)<0.2)
+                if isMiss:
+                    pred_boxes = torch.cat([pred_boxes,box[None,:]])
+            person_bboxes.append(pred_boxes)
+            
+        # person_bboxes = [
+        #     pred["boxes"][torch.logical_and(pred['labels'] == 0, pred['scores'] > thershold)]
+        #     for pred in predictions
+        # ]
+
         # self.visualize(images[0], person_bboxes[0])
         # pred.pred_boxes.tensor[pred.pred_classes == 0]
         pred = dict(person_bboxes=person_bboxes)
-        camera_paras = {'camera_height': outputs['height']*20, 'camera_angle': outputs['angle']*1.2}
-        # 'angle', 'height'
-        print(camera_paras)
-        print(batch['camera_height'], batch['camera_height'])
+        camera_paras = {'camera_height': outputs_height*20, 'camera_angle': outputs_angle*1.2}
+
         pred.update(**camera_paras)
 
         result = Batch(gt=batch, pred=pred)
