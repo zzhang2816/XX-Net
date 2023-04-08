@@ -1,6 +1,6 @@
 # XX-Net: Assessing Social Distancing Compliance
 
-![demo](/Users/zhangzhiyuan/Desktop/XX-Net/demo/demo.png)
+![demo](./demo/demo.png)
 
 Social distance is an effective measure to prevent the spreading of infectious diseases. It has gained significant attention since the outbreak of the COVID-19 pandemic. The previous study has proved the possibility of inferring the real-world distance between people and identifying the high-risk region by surveillance camera parameters and images. However, those models still suffer from missing recognition of people in the occluded cases. XX-Net, modified from the existing detection-based method, is proposed for joint geometry reasoning and better identification of people instances in the bird-eye view. A novel and effective postprocess procedure is introduced for mitigating the missing recognition problem. It reaches state-of-the-art performance on all evaluation metrics. XX-Net represents **eXtends** from a detection-based method and **eXtracts** the missing boxes from the low-confidence predictions.
 
