@@ -26,7 +26,5 @@ model_zoo_old/
 checkpoints/
 data/
 logs/
-*.txt
-trail*
-temp*
-untrack/
+data_postprocess/
+depreciated/

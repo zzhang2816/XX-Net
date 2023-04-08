@@ -80,6 +80,8 @@ def get_args_parser():
     parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
     parser.add_argument('--amp', action='store_true',
                         help="Train with mixed precision")
+
+    parser.add_argument('--use_dino_pertrained', action='store_true')
     
     return parser
 
@@ -231,21 +233,24 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
 
+    print("whether use:", args.use_dino_pertrained)
     if (not args.resume) and args.pretrain_model_path:
         checkpoint = torch.load(args.pretrain_model_path, map_location='cpu')['model']
         from collections import OrderedDict
         # _ignorekeywordlist = args.finetune_ignore if args.finetune_ignore else []
-        # _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
-        #  "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
-        #  "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
-        #  "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
-        #  "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
-        #  "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
-        #  "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
-        #  "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
-        #  "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
-        #  "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
-        _ignorekeywordlist = []
+        if args.use_dino_pertrained:
+            _ignorekeywordlist = ["transformer.decoder.class_embed.0.weight", "transformer.decoder.class_embed.0.bias",\
+            "transformer.decoder.class_embed.1.weight", "transformer.decoder.class_embed.1.bias", \
+            "transformer.decoder.class_embed.2.weight", "transformer.decoder.class_embed.2.bias", \
+            "transformer.decoder.class_embed.3.weight", "transformer.decoder.class_embed.3.bias", \
+            "transformer.decoder.class_embed.4.weight", "transformer.decoder.class_embed.4.bias", \
+            "transformer.decoder.class_embed.5.weight", "transformer.decoder.class_embed.5.bias", \
+            "enc_out_class_embed.weight", "enc_out_class_embed.bias", "class_embed.0.weight", \
+            "class_embed.0.bias", "class_embed.1.weight", "class_embed.1.bias", "class_embed.2.weight", \
+            "class_embed.2.bias", "class_embed.3.weight", "class_embed.3.bias", "class_embed.4.weight", \
+            "class_embed.4.bias", "class_embed.5.weight", "class_embed.5.bias"]
+        else:
+            _ignorekeywordlist = []
         ignorelist = []
 
         def check_keep(keyname, ignorekeywordlist):

@@ -861,8 +861,10 @@ def build_dino(args):
     weight_dict = {'loss_ce': args.cls_loss_coef, 'loss_bbox': args.bbox_loss_coef}
     weight_dict['loss_giou'] = args.giou_loss_coef
     clean_weight_dict_wo_dn = copy.deepcopy(weight_dict)
-    weight_dict.update({'loss_angle': args.angle_loss_coef, 'loss_height': args.height_loss_coef})
-    
+    if ("use_dino_pertrained" not in args) or args.use_dino_pertrained:
+        weight_dict.update({'loss_angle': 0, 'loss_height': 0})
+    else:
+        weight_dict.update({'loss_angle': args.angle_loss_coef, 'loss_height': args.height_loss_coef})
     
     # for DN training
     if args.use_dn:

@@ -6,6 +6,8 @@ import numpy as np
 import os
 import torch
 import torchvision.transforms.functional as F
+from dino.util import box_ops
+from torchvision import transforms
 # from detectron2.checkpoint import DetectionCheckpointer
 # from detectron2.engine import DefaultTrainer
 # from detectron2.engine import launch
@@ -27,8 +29,9 @@ from pytorch_helper.utils.log import pbar
 from pytorch_helper.utils.meter import Meter
 from pytorch_helper.settings.spaces import Spaces
 
-from dino.DINO_4scale_swin import trained_model
+from dino.DINO_4scale_swin import trained_model, trained_classifier
 from torchvision.ops import box_iou
+from PIL import Image
 logger = get_logger(__name__)
 
 
@@ -56,7 +59,8 @@ class DINOTask(LauncherTask):
             # self.model = build_model(cfg)
             # checkpointer = DetectionCheckpointer(self.model)
             # checkpointer.load(cfg.MODEL.WEIGHTS)
-            self.model, self.postprocessors = trained_model(self.model_config_path)
+            self.model, self.postprocessors, _ = trained_model(self.model_config_path)
+            self.classifier = trained_classifier()
             self.loss_fn = self.option.loss.build()
 
             # self.use_inferred_pose = not self.option.test_option.pose_oracle
@@ -111,7 +115,6 @@ class DINOTask(LauncherTask):
         else:
             self.model.train()
             self.model.training = False
-            # self.pose_net.eval()
             for batch in pbar(self.test_loader, desc='Test'):
                 with torch.no_grad():
                     result = self.model_forward(batch)
@@ -148,49 +151,48 @@ class DINOTask(LauncherTask):
         images = batch['image']
         gt_bev_map = batch['bev_map']
         bs, _, height, width = gt_bev_map.shape
-        '''
-        inputs = [
-            {'image': im, 'height': height, 'width': width}
-            for im in torch.flip(images, [1]) * 255
-        ]
-        '''
-        # if self.use_inferred_pose:
-        #     pose_inputs = self.dataloader.normalize(images)
-        #     pred_pose = self.pose_net(pose_inputs.cuda())
-
-        # images = torch.flip(images, [1]) * 255
         mean = torch.Tensor([0.485, 0.456, 0.406])
         std = torch.Tensor([0.229, 0.224, 0.225])
      
         images = F.resize(images,size = [800, 1333])
+        raw_image = images[0].clone()
+        raw_image = (raw_image*255).permute(1,2,0).cpu().numpy().astype(np.uint8)
+        raw_image = Image.fromarray(raw_image)
         images = F.normalize(images, mean=mean, std=std)
-
+        
+        
         orig_target_sizes = torch.stack([torch.Tensor([height, width]) for _ in range(len(images))], dim=0)
         outputs = self.model.cuda()(images.cuda())
 
         outputs_height = outputs['height']
         outputs_angle = outputs['angle']
         outputs = self.postprocessors['bbox'](outputs, orig_target_sizes.cuda())
-        # outputs = self.model(inputs)
-        # predictions = [output['instances'] for output in outputs]
         thershold = 0.5 # set a thershold
         min_thershold = 0.1
-
+        
         person_bboxes = []
         for output in outputs:
             scores = output['scores']
             pred_boxes = output['boxes'][scores>thershold]
+            high_conf_len = len(pred_boxes)
             remain_boxes = output['boxes'][(scores < thershold)&(scores > min_thershold)]
 
             for box in remain_boxes:
                 isMiss = torch.all(box_iou(box[None,:], pred_boxes)<0.2)
                 if isMiss:
                     pred_boxes = torch.cat([pred_boxes,box[None,:]])
-            person_bboxes.append(pred_boxes)
+            valid_idx = classify(pred_boxes[high_conf_len:], raw_image, self.classifier)
+            miss_preds = pred_boxes[high_conf_len:][valid_idx]
+            pred_boxes = pred_boxes[:high_conf_len]
+            if miss_preds.shape[0]>0:
+                pred_boxes = torch.cat([pred_boxes, miss_preds])
             
+            person_bboxes.append(pred_boxes)
+
+
         # person_bboxes = [
-        #     pred["boxes"][torch.logical_and(pred['labels'] == 0, pred['scores'] > thershold)]
-        #     for pred in predictions
+        #     output["boxes"][output['scores'] > thershold]
+        #     for output in outputs
         # ]
 
         # self.visualize(images[0], person_bboxes[0])
@@ -334,49 +336,17 @@ class DINOTask(LauncherTask):
     #     vslzr = COCOVisualizer()
     #     vslzr.visualize(image.cpu(), pred_dict, savedir="./")
 
-'''
-    def save_visualization(self, result):
-        def get_path(x):
-            return os.path.join(self.output_path_test_net_output, x)
-
-        images = result.gt['image']
-        bs, _, h, w = images.size()
-        for i in range(bs):
-            im = images[i].cpu().permute(1, 2, 0).numpy() * 255
-            scene_id = result.gt['scene_id'][i].int().item()
-            image_id = result.gt['image_id'][i].int().item()
-            prefix = f'scene{scene_id:02d}-{image_id}'
-            visualizer = Visualizer(im)
-
-            # prediction
-            # detection
-            instances = result.pred['outputs'][i]['instances'].to('cpu')
-            # keep people class
-            instances = instances[instances.pred_classes == 0]
-            vis_output = visualizer.draw_instance_predictions(instances)
-            vis_output.save(get_path(prefix + '-detection-pred.png'))
-
-            # gt
-            # pseudo-detection
-            num_annotation = result.gt['num_annotations'][i].long()
-            feet = result.gt['feet_annotation'][i, :, :num_annotation]
-            head = result.gt['head_annotation'][i, :, :num_annotation]
-            camera_angle = result.gt['camera_angle'][i]
-            box_w = (feet[1] - head[1]) / (3 * camera_angle.cos())
-            box = torch.zeros(int(num_annotation), 4)
-
-            box[:, 0] = feet[0] - 0.5 * box_w  # left
-            box[:, 1] = head[1]  # top
-            box[:, 2] = feet[0] + 0.5 * box_w  # right
-            box[:, 3] = feet[1]  # bottom
-
-            gt_instances = Instances(
-                (h, w), pred_boxes=Boxes(box),
-                scores=torch.ones(len(box)),
-                pred_classs=torch.zeros(len(box)).long()
-            )
-            visualizer = Visualizer(im)
-            vis_output = visualizer.draw_instance_predictions(gt_instances)
-            vis_output.save(get_path(prefix + '-detection-gt.png'))
-
-'''
+def classify(arr, image, model):
+    valid_idx = []
+    arr = arr.cpu().numpy()
+    preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    for bounding in arr:
+        input = image.crop(bounding).resize((32,72))
+        input = preprocess(input).cuda().unsqueeze(0)
+        out = model(input).argmax()
+        valid_idx.append(out)
+    valid_idx = torch.Tensor(valid_idx)==1
+    return valid_idx

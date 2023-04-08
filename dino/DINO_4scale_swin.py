@@ -20,9 +20,16 @@ def trained_model(model_config_path):
     args.device = 'cuda' 
     args.backbone_dir = './checkpoints/'
     model, criterion, postprocessors = build_model_main(args)
+    use_post_processing = args.use_post_processing
     checkpoint = torch.load(args.model_checkpoint_path, map_location='cpu')
     model.load_state_dict(checkpoint['model'])
 
-    return model,postprocessors
+    return model,postprocessors, use_post_processing
     # output = model.cuda()(image[None].cuda())
     # output = postprocessors['bbox'](output, torch.Tensor([[1.0, 1.0]]).cuda())[0]
+
+def trained_classifier():
+    torch.manual_seed(42)
+    model=torch.load("data_postprocess/ckpts/epoch_4.pth").to("cuda")
+    model.eval()
+    return model

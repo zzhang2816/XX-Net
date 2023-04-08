@@ -743,11 +743,12 @@ def build(image_set, args):
             return_masks=args.masks,
             aux_target_hacks=aux_target_hacks_list,
         )
-    if image_set == 'train':
+
+    if image_set == 'train' or image_set == 'train_reg':
         paras_path = "data/CityUHK-X-BEV/det/camera_data/my_train_list.pkl"
     elif image_set == 'val':
-        paras_path = "data/CityUHK-X-BEV/det/camera_data/my_test_list.pkl"
-        # return coco_dataset
+        # paras_path = "data/CityUHK-X-BEV/det/camera_data/my_test_list.pkl"
+        return coco_dataset
 
     other_paras = pickle.load(open(paras_path, 'rb'))
     dataset = Mydataset(coco_dataset, other_paras)
