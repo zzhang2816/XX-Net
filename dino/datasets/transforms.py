@@ -12,6 +12,60 @@ import torchvision.transforms.functional as F
 from dino.util.box_ops import box_xyxy_to_cxcywh
 from dino.util.misc import interpolate
 
+class RandomOcclusion(torch.nn.Module):
+    def __init__(self, p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=[0.485, 0.456, 0.406]):
+        super().__init__()
+        if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
+            print("Scale and ratio should be of kind (min, max)")
+        if scale[0] < 0 or scale[1] > 1:
+            raise ValueError("Scale should be between 0 and 1")
+        if p < 0 or p > 1:
+            raise ValueError("Random erasing probability should be between 0 and 1")
+
+        self.p = p
+        self.scale = scale
+        self.ratio = ratio
+        self.value = torch.Tensor(value).reshape(3,1,1)
+
+
+    def forward(self, img, target):
+        bboxes = target["boxes"]
+        img_c, img_h, img_w = img.shape[-3], img.shape[-2], img.shape[-1]
+        selected_ids = torch.randperm(len(bboxes))[:int(len(bboxes)/4)]
+        max_random_erase=10
+        for id in selected_ids:
+            x = (bboxes[id][1]+ bboxes[id][3])/2
+            y = bboxes[id][0]
+            h = (bboxes[id][3] - bboxes[id][1])/1.5
+            w = bboxes[id][2] - bboxes[id][0]
+            x, y, h, w = map(int, [x, y, h, w])
+            # v = self.value
+            v = img[:,x,y].reshape(3,1,1)
+
+            img = F.erase(img, x, y, h, w, v, True)
+            if id<max_random_erase:
+                x = torch.randint(0, img_h, size=(1,)).item()
+                y = torch.randint(0, img_w, size=(1,)).item()
+                img = F.erase(img, x, y, h, w, v, True)
+        return img
+
+    def __repr__(self) -> str:
+        s = (
+            f"{self.__class__.__name__}"
+            f"(p={self.p}, "
+            f"scale={self.scale}, "
+            f"ratio={self.ratio}, "
+        )
+        return s
+
+
+class OcclusionArgument(object):
+    def __init__(self, *args, **kwargs):
+        self.eraser = RandomOcclusion(*args, **kwargs)
+
+    def __call__(self, img, target):
+        return self.eraser(img, target), target
+
 
 def crop(image, target, region):
     cropped_image = F.crop(image, *region)

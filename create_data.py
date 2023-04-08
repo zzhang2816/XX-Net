@@ -76,7 +76,7 @@ for _, targets in dataset_train:
             neg_idx += 1
     idx+=1
 
-
+idx = 0
 for image, _ in dataset_eval:
     output = model.cuda()(image[None].cuda())
     output = postprocessors['bbox'](output, torch.Tensor([[1.0, 1.0]]).cuda())[0] 
